@@ -86,6 +86,6 @@ class Multi_head_attention(nn.Module):
         return out
 
 obj = Multi_head_attention(2, 4)
-x = torch.rand(1, 4, 4)
+x = torch.rand(1, 2, 4)
 output = obj(x)
 print(output)
