@@ -82,8 +82,57 @@ class Transformer_Encoder(nn.Module):
         x = self.norm2(x + fid)
 
         return x
-
+'''
 obj = Transformer_Encoder(4 ,2, 4)
 x = torch.rand(1, 3, 4)
+output = obj(x)
+print(output)
+'''
+
+
+#Question 30 Masked Attention
+
+class Masked_Multihead(nn.Module):
+    def __init__(self, num_heads, embeding):
+        super().__init__()
+        assert embeding % num_heads == 0
+        self.num_heads = num_heads
+        self.embeding = embeding
+        self.head = self.embeding // num_heads
+        
+
+        self.fc1 = nn.Linear(embeding, embeding)
+        self.fc2 = nn.Linear(embeding, embeding)
+        self.fc3 = nn.Linear(embeding, embeding)
+        self.out_layer = nn.Linear(embeding, embeding)
+    
+    def forward(self, x):
+        batch_size, seq_len , embed = x.size()
+        Q = self.fc1(x)
+        K = self.fc2(x)
+        V = self.fc3(x)
+
+        Q = Q.view(batch_size, seq_len, self.num_heads, self.head).transpose(1, 2)
+        K = K.view(batch_size, seq_len, self.num_heads, self.head).transpose(1, 2)
+        V = V.view(batch_size, seq_len, self.num_heads, self.head).transpose(1, 2)
+
+        first_term = torch.matmul(Q, K.transpose(-2, -1))
+        sec_term = math.sqrt(self.head)
+        scores = first_term/sec_term
+        mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
+        scores = scores.masked_fill(mask.to(scores.device), float('-inf'))
+
+        val = F.softmax(scores, dim=-1)
+
+        output = torch.matmul(val, V)
+
+        output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, embed)
+
+        out = self.out_layer(output)
+        return out
+
+
+obj = Masked_Multihead(2, 4)
+x = torch.rand(1, 2, 4)
 output = obj(x)
 print(output)
