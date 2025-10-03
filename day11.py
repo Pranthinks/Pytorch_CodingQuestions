@@ -137,7 +137,7 @@ class Masked_Attention(nn.Module):
         return out
 
 
-#Question 33 Custom Transformer Decoder Layer
+#Question 33 Custom Transformer Decoder Layer thats uses all the customly built methods
 
 class Transformer_Decoder(nn.Module):
     def __init__(self, heads, d_model, hid, dropout = 0.1):
