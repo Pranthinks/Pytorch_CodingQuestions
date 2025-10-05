@@ -5,7 +5,6 @@ from torch.utils.data import dataset, dataloader, random_split, TensorDataset
 import math
 #Transformers
 #Question 26 Positional Encoding
-
 class Postional_Encoding(nn.Module):
     def __init__(self, max_len, d_model):
         super().__init__()
