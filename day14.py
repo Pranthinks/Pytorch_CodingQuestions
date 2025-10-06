@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.utils.data import dataloader, TensorDataset, dataset
 from torch.nn.utils.rnn import pad_sequence
 import math
+import torch.optim as optim
 
 #Question 35  Doing Padding and Padding-Mask 
 x = torch.tensor([1.0, 2.0, 3.0])
@@ -46,10 +47,48 @@ class Feed_Forward(nn.Module):
         x = self.fc2(x)
 
         return x
-'''
-x = torch.rand(4, 3)
-obj = Feed_Forward(3, 4, 3)
-output = obj(x)
-print(output)
-'''
-         
+
+#Question 37 Performing Gradient Accumulation in the training loop
+x = torch.rand(4, 3, dtype = torch.float32)
+y = torch.rand(4, 3, dtype = torch.float32)
+model = Feed_Forward(3, 4, 3)
+op = optim.SGD(model.parameters() , lr=0.01)
+criterion = nn.MSELoss()
+grad_accum = 4
+
+for i in range(20):
+    model.train()
+    op.zero_grad()
+    for j in range(grad_accum):
+        output = model(x)
+        loss = criterion(output, y)
+        loss = loss/grad_accum
+        loss.backward()
+    if (j+1)%grad_accum == 0:
+        op.step()
+        op.zero_grad()
+    print(loss)
+
+
+#Question 38 Using PyTorch’s AMP for mixed-precision training
+model1 = Feed_Forward(3, 4, 5).to('cuda')
+y = torch.rand(3, 3, device ='cuda', dtype = torch.float32)
+op = torch.rand(3, 5, device = 'cuda', dtype = torch.float32)
+criterion = nn.MSELoss()
+optimizer = optim.SGD(model1.parameters(), lr=0.01)
+
+scaler = torch.cuda.amp.GradScaler()
+
+for i in range(20):
+    model1.train()
+    optimizer.zero_grad()
+
+    with torch.cuda.amp.autocast():
+        output = model1(y)
+        loss = criterion(op, output)
+    
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
+    print(loss)
+
