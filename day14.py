@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import dataloader, TensorDataset, dataset
+from torch.utils.data import DataLoader, TensorDataset, Dataset
 from torch.nn.utils.rnn import pad_sequence
 import math
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 #Question 35  Doing Padding and Padding-Mask 
 x = torch.tensor([1.0, 2.0, 3.0])
@@ -67,9 +68,9 @@ for i in range(20):
     if (j+1)%grad_accum == 0:
         op.step()
         op.zero_grad()
-    print(loss)
+    
 
-
+'''
 #Question 38 Using PyTorch’s AMP for mixed-precision training
 model1 = Feed_Forward(3, 4, 5).to('cuda')
 y = torch.rand(3, 3, device ='cuda', dtype = torch.float32)
@@ -91,4 +92,58 @@ for i in range(20):
     scaler.step(optimizer)
     scaler.update()
     print(loss)
+'''
 
+#Question 39 Collate Function
+class Mydataset(Dataset):
+    def __init__(self):
+        self.data = [
+            (torch.tensor([1, 2, 3]), torch.tensor([4, 5])),
+            (torch.tensor([6, 7]), torch.tensor([8])),
+        ]
+    
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        return self.data[index]
+def collate(batch):
+    src, tgr = [], []
+    for i , j in batch:
+        src.append(i)
+        tgr.append(j)
+    op1  = pad_sequence(src, batch_first= True, padding_value=0)
+    op2 = pad_sequence(tgr, batch_first=True, padding_value=0)
+
+    final = (op1 == 0)
+    final2 = (op2 == 0)
+
+    return op1, op2, final, final2
+
+val = Mydataset()
+data = DataLoader(val, batch_size=2, collate_fn=collate)
+'''
+for src, tgt, src_mask, tgt_mask in data:
+    print("Source:", src)
+    print("Target:", tgt)
+    print("Source mask:", src_mask)
+    print("Target mask:", tgt_mask)
+'''
+#Question 40 Tensor board it is kind of similar thing to MLflow
+obj = Feed_Forward(4,4,4)
+criterion = nn.MSELoss()
+optimizer = optim.SGD(obj.parameters(), lr = 0.01)
+x = torch.rand(3, 4)
+y = torch.rand(3, 4)
+writer = SummaryWriter(log_dir='runs/experiment1')
+for i in range(20):
+    obj.train()
+    optimizer.zero_grad()
+
+    output = obj(x)
+    loss = criterion(output, y)
+    loss.backward()
+
+    optimizer.step()
+    writer.add_scalar("Loss/train", loss, i)
+writer.close()
