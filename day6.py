@@ -35,19 +35,32 @@ for i in range(20):
 
 
 #Question 21 Saving and loaded model state
-def model_load(model, path = 'model.pth' ):
-
-    torch.save(model.state_dict(), path)
-    print('Model Saved Successfully')
-
-def load_model(model_class, path = 'model.pth',  *model_args, **model_kwargs):
-    model = model_class(*model_args, **model_kwargs)
-    model.load_state_dict(torch.load(path, weights_only=True))
-    return model
-
-model = SimpleNetwork(2, 4, 6)
-model_load(model, 'first.pth')
-loaded_model = load_model(SimpleNetwork, 'first.pth', 2, 4, 6)
-x = torch.rand(1, 2)
-print(loaded_model(x))
-
+#Saving the model
+x = torch.rand(4, 4, dtype = torch.float32)
+y = torch.rand(4, 4, dtype = torch.float32)
+model = SimpleNetwork(4, 3, 4)
+optimizer = op.SGD(model.parameters(), lr = 0.01)
+scheduler = op.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)  
+criterion = nn.MSELoss()
+for i in range(10):
+    model.train()
+    optimizer.zero_grad()
+    op = model(x)
+    loss = criterion(op, y)
+    loss.backward()
+    clip_grad_norm_(model.parameters(), max_norm=1.0)  
+    optimizer.step()
+    scheduler.step()
+    print(loss)
+torch.save({
+    'epoch':20,
+    'model': model.state_dict(),
+    'optimizer': optimizer.state_dict(),
+    'val_loss':loss.item()
+}, 'test_model.pth')
+print('Model Saved Successfully')
+#Loading the saved model
+a = torch.load('test_model.pth')
+model.load_state_dict(a['model'], strict=False)
+print(f"✓ Model loaded from epoch {a['epoch']}")
+print(f"✓ Best Val Loss: {a['val_loss']:.4f}\n")
