@@ -117,7 +117,7 @@ for i in range(10):
     optimizer.step()
     scheduler.step()
     print(loss)
-'''
+
 #Saving the model
 x = torch.rand(4, 4, dtype = torch.float32)
 y = torch.rand(4, 4, dtype = torch.float32)
@@ -147,4 +147,119 @@ a = torch.load('test_model.pth')
 model.load_state_dict(a['model'], strict=False)
 print(f"✓ Model loaded from epoch {a['epoch']}")
 print(f"✓ Best Val Loss: {a['val_loss']:.4f}\n")
+'''
+import math
+class Positional_Encoding(nn.Module):
+    def __init__(self, max_len, d_model):
+        super().__init__()
+        pe = torch.zeros(max_len, d_model)
+        first_term = torch.arange(0, max_len, dtype=torch.float32).unsqueeze(1)  # (max_len, 1)
+        second_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000)/d_model))  # (d_model/2,)
+        pe[:, 0::2] = torch.sin(first_term*second_term)
+        pe[:, 1::2] = torch.cos(first_term*second_term)
 
+        self.pe = pe.unsqueeze(0)
+    
+    def forward(self, x):
+        x = x+ self.pe[:, :x.size(1) ]
+
+        return x
+'''
+model = Positional_Encoding(10, 6)
+x = torch.rand(1, 3, 6)
+op = model(x)
+print(op)
+'''
+class Attention(nn.Module):
+    def __init__(self, d_model, embedings):
+        super().__init__()
+        self.d_model = d_model
+        self.fc1 = nn.Linear(embedings, embedings)
+        self.fc2 = nn.Linear(embedings, embedings)
+        self.fc3 = nn.Linear(embedings, embedings)
+        self.fc4 = nn.Linear(embedings, embedings)
+    
+    def forward(self, x):
+        Q = self.fc1(x)
+        K = self.fc2(x)
+        V = self.fc3(x)
+
+        first_term = torch.matmul(Q, K.transpose(-2, -1))
+        second_term = math.sqrt(self.d_model)
+
+        val = F.softmax(first_term/second_term, dim=-1)
+
+        V = torch.matmul(val, V)
+
+        op = self.fc4(V)
+        return op
+'''
+model = Attention(4, 5)
+x = torch.rand(4, 5)
+op = model(x)
+print(x)
+'''
+class Multihead_Attention(nn.Module):
+    def __init__(self, num_heads, embedings):
+        super().__init__()
+        self.num_heads = num_heads
+        self.embedings = embedings
+        self.heads = self.embedings//self.num_heads
+        self.fc1 = nn.Linear(embedings, embedings)
+        self.fc2 = nn.Linear(embedings, embedings)
+        self.fc3 = nn.Linear(embedings, embedings)
+        self.fc4 = nn.Linear(embedings, embedings)
+    
+    def forward(self, x):
+        batch_size, seq_len, embedings = x.size()
+        Q = self.fc1(x)
+        K = self.fc2(x)
+        V = self.fc3(x)
+
+        Q= Q.view(batch_size, seq_len, self.num_heads, self.heads).transpose(1, 2)
+        K= K.view(batch_size, seq_len, self.num_heads, self.heads).transpose(1, 2)
+        V= V.view(batch_size, seq_len, self.num_heads, self.heads).transpose(1, 2)
+
+        first_term = torch.matmul(Q, K.transpose(-2, -1))
+        second_term = math.sqrt(self.heads)
+
+        val = F.softmax(first_term/second_term, dim=-1)
+
+        output = torch.matmul(val, V)
+        output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, embedings)
+
+        op = self.fc4(output)
+        return op
+'''
+model = Multihead_Attention(4, 8)
+x = torch.rand(1, 3, 8)
+op = model(x)
+print(x)
+'''
+
+class Transformer_Encoder(nn.Module):
+    def __init__(self, num_heads, embedings, hid_lay, dropout = 0.1):
+        super().__init__()
+        self.fc1 = nn.Linear(embedings, hid_lay)
+        self.Multi = Multihead_Attention(num_heads, embedings)
+        self.norm = nn.LayerNorm(embedings)
+        self.dropout = nn.Dropout(dropout)
+        self.norm1 = nn.LayerNorm(embedings)
+        self.fc2 = nn.Linear(hid_lay, embedings)
+    
+    def forward(self, x):
+        atten_op = self.Multi(x)
+
+        x = self.norm(x + self.dropout(atten_op))
+
+        x1= self.fc1(x)
+        x2 = self.fc2(x1)
+        x = self.norm1(x + self.dropout(x2))
+
+        return x
+         
+
+model = Transformer_Encoder(2, 8, 4)
+x = torch.rand(1, 4, 8)
+op = model(x)
+print(op)
