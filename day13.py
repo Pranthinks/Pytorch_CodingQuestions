@@ -129,7 +129,7 @@ class FullTransformer_Custom(nn.Module):
         self.pos = Postional_Encoding(seq_len, d_model)
         
         #Encoder Stuff
-        self.E_Multi = nn.MultiheadAttention(d_model, heads)
+        self.E_Multi = Multihead(heads, d_model)
         self.norm1 = nn.LayerNorm(d_model)
         self.E_FeedFor = Position_Feedforward(d_model, hidden_lay)
         self.norm2 = nn.LayerNorm(d_model)
@@ -152,8 +152,7 @@ class FullTransformer_Custom(nn.Module):
         x = self.src_embedding(src) * math.sqrt(self.d_model)
         x = self.pos(x)
 
-        x1, _ = self.E_Multi(x.transpose(0,1), x.transpose(0,1), x.transpose(0,1))
-        x1 = x1.transpose(0,1)
+        x1 = self.E_Multi(x)
         x = self.norm1(x + x1)
 
         x2 = self.E_FeedFor(x)

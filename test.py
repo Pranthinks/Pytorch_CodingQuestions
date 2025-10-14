@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
+from torch.nn.utils.rnn import pad_sequence
 
 '''
 x = torch.tensor([[[1, 2, 3, 4], [5, 6, 7, 8], [1, 2, 3, 4], [5, 6, 7, 8]]])
@@ -258,8 +259,50 @@ class Transformer_Encoder(nn.Module):
 
         return x
          
-
+'''
 model = Transformer_Encoder(2, 8, 4)
 x = torch.rand(1, 4, 8)
+op = model(x)
+print(op)
+'''
+class Custom_Layernorm(nn.Module):
+    def __init__(self, d_model, eta = 0.1):
+        super().__init__()
+        self.d_model = d_model
+        self.gamma = nn.Parameter(torch.ones(d_model))
+        self.beta = nn.Parameter(torch.zeros(d_model))
+        self.eta = eta
+    
+    def forward(self, x):
+        mean = x.mean(dim=-1, keepdim = True)
+        var = x.var(dim=-1, keepdim = True)
+        first_term = x - mean
+        second_term = torch.sqrt(var + self.eta)
+        op = first_term/ second_term
+        val = self.gamma*op + self.beta
+        return val
+'''
+model = Custom_Layernorm(5)
+x = torch.rand(3, 4)
+op = model(x)
+print(op)   
+'''
+class Padding(nn.Module):
+    def __init__(self, d_model):
+        super().__init__()
+        self.d_model = d_model
+    
+    def forward(self, x):
+        op = pad_sequence(x, batch_first=True, padding_value = 0)
+
+        mask = (op == 0)
+        op = op.masked_fill(mask, float('-inf'))
+
+        return op
+
+model = Padding(4)
+x = [torch.tensor([1.0, 2.0, 3.0]),
+     torch.tensor([1.0, 3.0]),
+     torch.tensor([1.0, 9.0, 45.9, 78.3])]
 op = model(x)
 print(op)
