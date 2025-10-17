@@ -28,6 +28,7 @@ class KV_Cache(nn.Module):
             "value": val
         }
         return atten_op, new_val
+'''
 # First token
 model = KV_Cache(4, 2)
 x1 = torch.rand(1, 1, 4)
@@ -40,10 +41,7 @@ x2 = torch.rand(1, 1, 4)
 op2, cache = model(x2, cache=cache)
 print("Output 2:", op2)
 print("Cache after 2nd token:", cache["key"].shape)
-
-
-
-
+'''
 
 #Question 43 Getting Visualizations for Attention weights
 
@@ -77,3 +75,59 @@ x = torch.rand(1, 4, 4)
 output = obj(x)
 print(output)
 '''
+
+#Question 44 Distribution of model layers accross diff GPU's (Considering we got more GPU's in one device)
+if torch.cuda.device_count() < 2:
+    print("We Need Alteast 2 GPU's to execute.")
+else:
+    print("This Laptop does not have any GPU")
+class Model_Parallelism(nn.Module):
+    def __init__(self, input , hid, output):
+        super().__init__()
+        self.layer1 = nn.Linear(input, hid).to('cuda:0')
+        self.relu = nn.ReLU()
+        self.layer2 = nn.Linear(hid, output).to('cuda:1')
+    
+    def forward(self, x):
+        x = x.to('cuda:0')
+        x1 = self.layer1(x)
+        x = self.relu(x1)
+
+        x = x.to('cuda:1')
+        x2 = self.layer2(x)
+
+        return x2
+'''
+model = Model_Parallelism(4, 5, 6)
+x = torch.rand(4, 4, dtype = torch.float32)
+op = model(x)
+print(op)
+'''
+
+#Question 45 Implementing Custom Optimizer Modifier
+
+class Position_Feedforward(nn.Module):
+    def __init__(self, input_ch, output_ch, dropout = 0.1):
+        super().__init__()
+        self.fc1 = nn.Linear(input_ch, output_ch)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(output_ch, input_ch)
+        self.dropout = nn.Dropout(dropout)
+
+    
+    def forward(self, x):
+         x= self.fc1(x)
+         x = self.relu(x)
+         x = self.dropout(x)
+         x = self.fc2(x)
+
+         return x
+
+model = Position_Feedforward(4, 6)
+
+optimizer = optim.SGD([
+    {'params':model.fc1.parameters(), 'lr':0.01},
+    {'params':model.fc2.parameters(), 'lr': 0.1}
+], momentum=0.9)
+
+#Question 45 Implementing Custom Optimizer
