@@ -131,3 +131,26 @@ optimizer = optim.SGD([
 ], momentum=0.9)
 
 #Question 45 Implementing Custom Optimizer
+class Custom_Optim:
+    def __init__(self, params, lr = 0.1):
+        self.params = list(params)
+        self.lr = lr
+    
+    @torch.no_grad()
+    def step(self):
+        for val in self.params:
+            if val.grad is not None:
+                val.data -= val.grad.data * self.lr
+    def zero_grad(self):
+        for val in self.params:
+            if val.grad is not None:
+                val.grad.zero_()
+model = Position_Feedforward(4, 6)
+opm = Custom_Optim(model.parameters(), lr = 0.001)
+
+
+
+
+
+
+        
