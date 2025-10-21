@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader, TensorDataset
 class Lightning(Callback):
     def __init__(self, patience = 3):
         self.patience = patience
-        self.val_loss = float('inf')
+        self.best_loss = float('inf')
         self.wait = 0
 
     def on_validation_end(self, trainer, pl_module):
@@ -69,8 +69,8 @@ class Lighting_version(pl.LightningModule):
 model = Lighting_version(4,5, 6)
 x = torch.rand(4, 4, dtype = torch.float32)
 y = torch.rand(4, 6, dtype = torch.float32)
-
+early_stop = Lightning(patience=2)
 first = DataLoader(TensorDataset(x, y), batch_size=4)
 second = DataLoader(TensorDataset(x, y), batch_size=4)
-trainer = Trainer(max_epochs=20)
+trainer = Trainer(max_epochs=20, callbacks=[early_stop])
 trainer.fit(model, first, second)
