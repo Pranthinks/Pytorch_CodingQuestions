@@ -48,3 +48,33 @@ grid = lambda meta: (triton.cdiv(max(x.numel(), y.numel()),  BLOCK_SIZE), )
 Add_Two_Tensors[grid](x, y, out, pids , x.numel(), y.numel(), BLOCK_SIZE = BLOCK_SIZE)
 print(out)
 print(pids.cpu())
+
+
+#Multiplying two numbers in 1-D Matrix
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+x = torch.arange(1, 10, 1, dtype = torch.float32).to(device)
+y = torch.arange(2, 25, 2, dtype = torch.float32).to(device)
+output = torch.empty_like(y)
+pids_op = torch.empty_like(y)
+
+@triton.jit
+
+def Cuda_Multi(x_ptr, y_ptr, out_ptr, pids, len_x, len_y, BLOCK_SIZE: tl.constexpr):
+  pid = tl.program_id(0)
+
+  offset = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+  mask = offset < max(len_x, len_y)
+
+  x = tl.load(x_ptr + offset , mask = offset < len_x, other = 1.0)
+  y = tl.load(y_ptr + offset , mask = offset < len_y, other = 1.0)
+  out = x * y
+  tl.store(out_ptr + offset, out, mask = mask)
+  tl.store(pids + offset, pid, mask = mask)
+
+BLOCK_SIZE = 2
+grid = lambda meta: (triton.cdiv(max(x.numel(), y.numel()),  BLOCK_SIZE), )
+Cuda_Multi[grid](x, y, output, pids_op, x.numel(), y.numel(), BLOCK_SIZE = BLOCK_SIZE)
+print(output)
+print(pids_op.cpu())
+
