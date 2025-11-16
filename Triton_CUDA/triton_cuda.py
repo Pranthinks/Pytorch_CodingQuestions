@@ -78,3 +78,39 @@ Cuda_Multi[grid](x, y, output, pids_op, x.numel(), y.numel(), BLOCK_SIZE = BLOCK
 print(output)
 print(pids_op.cpu())
 
+
+#Writing Custom CUDA Kernals to do arthimatic operion on 2D Arrays
+
+x = torch.ones(4, 4, dtype = torch.int).to(device)
+y = torch.ones(2, 3, dtype = torch.int).to(device)
+out = torch.empty_like(x)
+padd = torch.empty_like(x)
+
+@triton.jit
+def Addition_2d(x_ptr, y_ptr, out_ptr, pad ,len_x, len_y, stride_x, stride_y, stride_out,BLOCK_SIZE :tl.constexpr):
+  pid1 = tl.program_id(0)
+  pid2 = tl.program_id(1)
+
+  row_offset = pid1 * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+  col_offset = pid2 * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+
+  rows = row_offset[:, None]
+  cols = col_offset[None, :]
+
+  mask = (rows < len_x) & (cols < len_y)
+
+  x = tl.load(x_ptr + rows * stride_x + cols , mask = mask, other = 0.0)
+  y = tl.load(y_ptr + rows * stride_y + cols , mask = mask, other = 0.0)
+  out = x + y
+
+  tl.store(out_ptr + rows * stride_out + cols, out, mask = mask)
+  tl.store(pad + rows * stride_out + cols, pid1, mask = mask)
+
+
+BLOCK = 2
+grid = (triton.cdiv(x.shape[0], BLOCK), triton.cdiv(x.shape[1], BLOCK))
+
+Addition_2d[grid](x, y, out, padd, x.shape[0], x.shape[1], x.stride(0), y.stride(0), out.stride(0), BLOCK)
+print(out)
+print(padd)
+
