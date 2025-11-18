@@ -212,3 +212,20 @@ prompt = "I love books"
 
 print(generate(prompt = prompt, max_word_len = 15, temperature = 0.8))
 
+
+#Question 9 Finding the size of the model
+total_parameters = []
+trainable_params = []
+total_bytes = 0
+for i in model.parameters():
+  if i.requires_grad:
+    trainable_params.append(i.numel())
+  total_parameters.append(i.numel())
+
+  total_bytes += i.numel()* i.element_size()
+
+
+
+print("This is the total parameters the model has:", sum(total_parameters))
+print("This is the total Trainable Parameters the model has:", sum(trainable_params))
+print("Model Size in MB is:", total_bytes / (1024 ** 2))
