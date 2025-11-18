@@ -114,3 +114,43 @@ Addition_2d[grid](x, y, out, padd, x.shape[0], x.shape[1], x.stride(0), y.stride
 print(out)
 print(padd)
 
+import torch
+import triton
+import triton.language as tl
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+x = torch.ones(3, 3, dtype = torch.int).to(device)
+y = torch.ones(3, 3, dtype = torch.int).to(device)
+
+out = torch.empty((3, 3), dtype = torch.int).to(device)
+pids = torch.empty((3, 3), dtype = torch.int).to(device)
+
+@triton.jit
+def Division_2D(x_ptr, y_ptr, out_ptr, pids_ptr, len_x, len_y, stride_x , stride_y, stride_out, BATCH_SIZE: tl.constexpr):
+  pid0 = tl.program_id(0)
+  pid1 = tl.program_id(1)
+
+  row_offset = pid0 * BATCH_SIZE + tl.arange(0, BATCH_SIZE)
+  col_offset= pid1 * BATCH_SIZE + tl.arange(0, BATCH_SIZE)
+
+  rows = row_offset[:, None]
+  cols = col_offset[None, :]
+
+  mask = (rows < len_x) & (cols < len_y)
+  x = tl.load(x_ptr + rows * stride_x + cols, mask = mask, other = 1.0)
+  y = tl.load(y_ptr + rows * stride_y + cols, mask = mask, other = 1.0)
+
+  out = x / y
+
+  tl.store(out_ptr + rows * stride_out + cols, out, mask = mask)
+  tl.store(pids_ptr + rows * stride_out + cols, pid0, mask = mask)
+
+BATCH_SIZE = 2
+grid = (triton.cdiv(x.shape[0], BATCH_SIZE), triton.cdiv(x.shape[1], BATCH_SIZE))
+
+Division_2D[grid](x, y, out, pids, x.shape[0], x.shape[1], x.stride(0), y.stride(0), out.stride(0), BATCH_SIZE )
+print(out)
+print(pids)
+
+
