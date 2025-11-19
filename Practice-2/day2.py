@@ -124,6 +124,7 @@ from google.colab import files
 import zipfile
 from transformers import PreTrainedTokenizerFast
 import torch
+import torch.nn.functional as F
 
 val_token = files.upload()
 
@@ -164,6 +165,15 @@ model = Chatbot(
 ckpt = torch.load(val_sec, map_location = device)
 missing , unexpected = model.load_state_dict(ckpt["model_state_dict"], strict = False)
 
+def tok_k(logits, k : int = 40):
+
+    topk_logits, topk_indices = torch.topk(logits, k)
+
+    probs = F.softmax(topk_logits, dim = -1)
+    next_token = topk_indices[torch.multinomial(probs, 1)]
+
+    return next_token.item()
+
 
 #Inference Logic
 bos_id = custom_tokenizer.bos_token_id
@@ -189,7 +199,10 @@ def generate(prompt : str, max_word_len : int = 20, temperature : float = 0.7):
     output = model(matrix)[:, -1 , :]
 
     output = output / temperature
-    next_token = torch.argmax(output, dim = -1).item()
+    logits = output
+
+    next_token = top_k(logits[0], k = 50)
+    #next_token = torch.argmax(output, dim = -1).item()
 
     if eos_id is not None and next_token == eos_id:
       break
