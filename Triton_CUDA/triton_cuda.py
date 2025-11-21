@@ -154,3 +154,69 @@ print(out)
 print(pids)
 
 
+import torch
+import triton
+import triton.language as tl
+
+#Willing to perform a 1D Softmax 
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+x = torch.rand(2, 3, dtype = torch.float32).to(device)
+out = torch.empty_like(x)
+pids = torch.empty_like(x)
+
+@triton.jit
+def Softmax_1d(x_ptr, out_ptr, pids_ptr, len_x, BLOCK_SIZE: tl.constexpr):
+  pid = tl.program_id(0)
+  offset = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+
+  mask = offset < len_x
+  x = tl.load(x_ptr + offset, mask = mask)
+  x_max = tl.max(x, axis = 0)
+  x_exp = tl.exp(x - x_max)
+
+  second = tl.sum(x_exp * tl.cast(mask, tl.float32), axis = 0)
+  out = x_exp / second
+
+  tl.store(out_ptr + offset, out, mask = mask)
+  tl.store(pids_ptr + offset, pid, mask = mask)
+
+BLOCK_SIZE = 2
+grid = lambda meta: (triton.cdiv(x.numel(), meta['BLOCK_SIZE']),)
+Softmax_1d[grid](x, out, pids, x.numel(), BLOCK_SIZE)
+print(out)
+print(pids)
+
+
+#My custom formula execution op = a*b-c / d assuming all tensors are of same size
+
+a = torch.rand(2, 3, dtype = torch.float32).to(device)
+b = torch.rand(2, 3, dtype = torch.float32).to(device)
+c = torch.rand(2, 3, dtype = torch.float32).to(device)
+d = torch.rand(2, 3, dtype = torch.float32).to(device)
+out = torch.empty_like(a)
+pids = torch.empty_like(a)
+
+@triton.jit
+def Custom(a_ptr, b_ptr, c_ptr, d_ptr, out_ptr, pids, len_a, len_b, len_c, len_d, BLOCK_SIZE : tl.constexpr):
+  pid = tl.program_id(0)
+
+  offset = pid * BLOCK_SIZE  + tl.arange(0, BLOCK_SIZE)
+
+  mask = offset < max(max(len_a, len_b), max(len_c, len_d))
+
+  a = tl.load(a_ptr + offset, mask = offset < len_a, other = 1)
+  b = tl.load(b_ptr + offset, mask = offset < len_b, other = 1)
+  c = tl.load(c_ptr + offset, mask = offset < len_c, other = 1)
+  d = tl.load(d_ptr + offset, mask = offset < len_d, other = 1)
+  out = (a * b - c) / d
+
+  tl.store(out_ptr + offset, out, mask = mask)
+  tl.store(pids + offset, pid, mask = mask)
+
+BLOCK_SIZE = 2
+grid = lambda meta: (triton.cdiv(max(a.numel(), b.numel(), c.numel(), d.numel()),  BLOCK_SIZE), )
+Custom[grid](a, b, c, d, out, pids, a.numel(), b.numel(), c.numel(), d.numel(), BLOCK_SIZE = BLOCK_SIZE)
+print(out)
+print(pids)
