@@ -66,8 +66,31 @@ class Custom_KV(nn.Module):
 obj = Custom_KV(4, 2)
 x = torch.ones(2, 1, 4)
 op1, op2 = obj(x, cache = None)
+'''
 #print(op2.shape)
 print(op2["key"].shape)
 
 fin1 , fin2 = obj(x, cache = op2)
 print(fin2["key"].shape)
+'''
+
+#Question 15
+from torch.nn.utils.rnn import pad_sequence
+
+x = [ torch.tensor([1, 2, 3, 10, 4, 6, 7, 8,], dtype=torch.int),
+      torch.tensor([1, 5, 6, 8], dtype=torch.int), 
+      torch.tensor([1, 9, 10, 13, 18], dtype=torch.int), 
+      torch.tensor([6, 8], dtype=torch.int) ]
+
+sorted_x = sorted(x, key= lambda x: len(x))
+
+def batch(batch_len : int , seq: list):
+    i = 0
+    while i < len(seq):
+        matrix = seq[i: i + batch_len]
+        val_pad = pad_sequence(matrix, batch_first= True, padding_value= 0)
+        mask = (val_pad == 0)
+        print(mask)
+        i= i+batch_len
+
+batch(2, sorted_x)
