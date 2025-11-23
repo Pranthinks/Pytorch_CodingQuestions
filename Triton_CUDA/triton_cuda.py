@@ -220,3 +220,67 @@ grid = lambda meta: (triton.cdiv(max(a.numel(), b.numel(), c.numel(), d.numel())
 Custom[grid](a, b, c, d, out, pids, a.numel(), b.numel(), c.numel(), d.numel(), BLOCK_SIZE = BLOCK_SIZE)
 print(out)
 print(pids)
+
+
+
+#Implemnting custom CUDA Kernal with Broadcasting to implement 2-D Array Additions
+import torch
+import triton
+import triton.language as tl
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+x = torch.tensor([[1, 2, 3],
+                  [4, 5, 6]], dtype=torch.float32).to(device)  # (2, 3)
+
+y = torch.tensor([[10, 20, 30]], dtype=torch.float32).to(device)
+
+@triton.jit
+def Addition_Broadcasting(x_ptr, y_ptr, out_ptr, pids_ptr, x_shape0, x_shape1, y_shape0, y_shape1 ,x_stride0, x_stride1, y_stride0, y_stride1,  outstride0, outstride1, outshape0, outshape1, BLOCK_SIZE: tl.constexpr):
+  pid = tl.program_id(0)
+  offset = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
+
+  row = offset // outshape1
+  col = offset % outshape1
+
+  mask = (row < outshape0) & (col < outshape1)
+
+  x_row = tl.where(x_shape0 == 1, 0, row)
+  x_col = tl.where(x_shape1 == 1, 0, col)
+  y_row = tl.where(y_shape0 == 1, 0, row)
+  y_col = tl.where(y_shape1 == 1, 0, col)
+
+  x_offset = x_row * x_stride0 + x_col * x_stride1
+  y_offset = y_row * y_stride0 + y_col * y_stride1
+  out_offset = row * outstride0 + col * outstride1
+  
+    
+  x_val = tl.load(x_ptr + x_offset, mask=mask, other=0.0)
+  y_val = tl.load(y_ptr + y_offset, mask=mask, other=0.0)
+  result = x_val + y_val
+  tl.store(out_ptr + out_offset, result, mask=mask)
+  tl.store(pids_ptr + out_offset, pid, mask=mask)
+
+
+
+  
+out_shape = (max(x.shape[0], y.shape[0]), max(x.shape[1], y.shape[1]))
+out = torch.empty(out_shape, dtype=x.dtype, device=x.device)
+pids = torch.empty(out_shape, dtype=x.dtype, device=x.device) 
+n_elements = out_shape[0] * out_shape[1]
+    
+BLOCK_SIZE = 2
+grid = (triton.cdiv(n_elements, BLOCK_SIZE),)
+    
+Addition_Broadcasting[grid](
+        x, y, out, pids,
+        x.shape[0], x.shape[1],
+        y.shape[0], y.shape[1],
+        x.stride(0), x.stride(1),
+        y.stride(0), y.stride(1),
+        out.stride(0), out.stride(1),
+        out_shape[0], out_shape[1],
+        BLOCK_SIZE
+    )
+print(out)
+print(pids)
