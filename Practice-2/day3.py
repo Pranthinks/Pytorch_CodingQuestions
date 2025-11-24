@@ -94,3 +94,55 @@ def batch(batch_len : int , seq: list):
         i= i+batch_len
 
 batch(2, sorted_x)
+
+#Question - 16
+#Micro Batching Can handle multiple inputs in the same time
+
+def micro_generate(prompt : list[str], max_words : int = 40, vocab = vocab_size, temperature : float = 1.0, micro_batch : int = 2):
+  input_list = []
+  for i in range(len(prompt)):
+    input = tokenizer.encode(prompt[i], add_special_tokens = False)
+    input_id = [bos_id] + input if bos_id is not None else input[:]
+    input_list.append(input_id)
+  max_val = getattr(model, 'max_seq_len', 256)
+  final_output = []
+  
+  for i in range(0, len(input_list), micro_batch):
+
+    batch_val = input_list[i : i + micro_batch]
+    
+    #Finding the max_len of each batch_val and doing the padding to all based on this
+    max_len = max(len(seq) for seq in batch_val)
+    padded_batch = [
+        seq + [pad_id] * (max_len - len(seq)) for seq in batch_val
+    ]
+    split_tensor = torch.tensor(padded_batch, dtype = torch.long).to(device)
+
+    if split_tensor.size(1) > max_val:
+      split_tensor = split_tensor[:, -max_val:]
+    generated_ids = [[] for _ in range(len(split_tensor))]
+
+    for _ in range(max_words):
+      with torch.no_grad():
+        output = model(split_tensor)[:, -1, :]
+        output = output / temperature
+
+        next_token = torch.argmax(output, dim = -1)
+
+        for j , token in enumerate(next_token):
+         if token.item() == eos_id:
+           continue
+         generated_ids[j].append(token.item())
+
+        split_tensor = torch.cat([split_tensor, next_token.unsqueeze(1)], dim = 1)
+
+        if split_tensor.size(1) > max_val:
+          split_tensor = split_tensor[:, -max_val:]
+
+    decoded_outputs = [tokenizer.decode(ids, skip_special_tokens=True) for ids in generated_ids]
+    final_output.extend(decoded_outputs)
+     
+
+  
+     
+
