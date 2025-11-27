@@ -39,6 +39,23 @@ op1 = model_script(x)
 model_comp = torch.compile(model)
 op2 = model_comp(x)
 
+#Question - 19
+from torch.profiler import profile, record_function, ProfilerActivity
 
+with profile(
+    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA] if torch.cuda.is_available() else [ProfilerActivity.CPU],
+    record_shapes=True,
+    with_stack=True
+) as prof:
+    with torch.no_grad():
+        with record_function("model_inference"):
+            output = model(x)
+
+#Question 20
+from torch.cuda.amp import autocast, GradScaler
+import torch
+model.eval()
+
+with torch.cuda.amp.autocast():
+    output = model(x)
     
-
