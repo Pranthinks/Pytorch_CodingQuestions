@@ -12,6 +12,7 @@ class Simple_Forward(nn.Module):
     def forward(self, x):
         x = self.fc1(x)
         x = self.relu(x)
+        x = self.fc2(x)
         x = self.relu(x)
         return x
 
@@ -58,4 +59,30 @@ model.eval()
 
 with torch.cuda.amp.autocast():
     output = model(x)
-    
+
+#Question 21
+quantized_model = torch.quantization.quantize_dynamic(
+    model, {nn.Linear},
+    dtype = torch.qint8
+)
+
+#Question 22
+class Sample_LLM(nn.Module):
+    def __init__(self, embed):
+        super().__init__()
+        self.embed = nn.Linear(embed, embed)
+        
+    def forward(self, x):
+       x = self.embed(x)
+       return x
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+x = torch.rand(4, 4, dtype = torch.float32).to(device)
+model = Sample_LLM(4)
+
+wei = model.embed.weight
+mask = wei.abs() < 0.1
+
+wei.data[mask] = 0.0 
+
+
