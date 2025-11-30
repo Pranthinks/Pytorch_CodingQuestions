@@ -85,4 +85,54 @@ mask = wei.abs() < 0.1
 
 wei.data[mask] = 0.0 
 
+#Question 23 and 24
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+model = AutoModelForCausalLM.from_pretrained("gpt2")
+batch = tokenizer.vocab_size()
+model.eval()
+bos_id = tokenizer.bos_token_id
+eos_id = tokenizer.eos_token_id
+pad_id = tokenizer.pad_token_id
+
+prompt = "I love the transformer"
+
+def generate(prompt, max_words: int = 40, temperature: float = 0.8, vocab_size = batch):
+
+    inputs = tokenizer.encode(prompt, add_special_tokens = False)
+
+    input_1 = [bos_id] + inputs if bos_id is not None else inputs[:]
+
+    input_tensor = torch.tensor(input_1, dtype = torch.long, pin_memory= True).to(device)
+    generated_ids = []
+    
+    for _ in range(max_words):
+        with torch.no_grad():
+            output = model(input_tensor)
+
+            logits = output.logits
+
+            output1 = logits[:, -1, :] / temperature
+
+            next_val = torch.argmax(output1, dim = -1).item()
+
+
+            if next_val == eos_id and eos_id is not None:
+                break
+            generated_ids.append(next_val)
+
+            op_tensor = torch.tensor([[next_val]], dtype = torch.long, pin_memory = True).to(device)
+
+            input_tensor = torch.cat([input_tensor, op_tensor], dim = 1)
+    res = tokenizer.decode(generated_ids, skip_special_tokens = True)
+
+    return res
+generate(prompt, 40, 0.8, batch)
+
+
+
+
+
 
